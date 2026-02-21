@@ -1,0 +1,8 @@
+.streamlit/secrets.toml
+venv/
+__pycache__/
+runs/
+yoloDataset/
+archive.zip
+yolov8s.pt
+yolo26n.pt
