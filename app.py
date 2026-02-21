@@ -11,7 +11,6 @@ from streamlit_lottie import st_lottie
 from advisor import sustainability_db
 
 # --- 1. CONFIGURATION & SECRETS ---
-# Make sure your .streamlit/secrets.toml is set up!
 SUPABASE_URL = st.secrets["SUPABASE_URL"]
 SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -32,8 +31,12 @@ def load_lottieurl(url):
         pass
     return None
 
-# Attempt to load the animation
 lottie_eco = load_lottieurl("https://lottie.host/8e202534-7221-432a-9811-04930d674174/Hn9mAn6XmB.json")
+
+@st.cache_resource
+def load_yolo():
+    # Loading directly from root directory for Streamlit Cloud compatibility
+    return YOLO("best.pt") 
 
 # --- 3. SESSION STATE INITIALIZATION ---
 if "theme" not in st.session_state: st.session_state.theme = "dark"
@@ -105,15 +108,11 @@ def render_footer():
 
 @st.dialog("Eco-Alternative Advisor")
 def chat_dialog(items):
-    st.write(f"Analyzing alternatives for: {', '.join(items)}")
+    st.write(f"Analyzing alternatives for: **{', '.join(items)}**")
     if prompt := st.chat_input("How can I reduce this waste?"):
         with st.spinner("Consulting Eco-Expert..."):
             response = llm_model.generate_content(f"User has detected {items}. Suggest zero-waste swaps for: {prompt}")
             st.markdown(response.text)
-
-@st.cache_resource
-def load_yolo():
-    return YOLO("best.pt")
 
 # --- 6. PAGE ROUTING & LOGIC ---
 render_top_right_toggle()
@@ -123,7 +122,6 @@ if not st.session_state.logged_in:
         # HERO SECTION
         st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
         
-        # Safe Lottie Render
         if lottie_eco:
             st_lottie(lottie_eco, height=220, key="main_eco")
         else:
@@ -174,18 +172,21 @@ if not st.session_state.logged_in:
         st.subheader("Member Access" if st.session_state.auth_mode == "login" else "New Registration")
         email = st.text_input("Email")
         pw = st.text_input("Password", type="password")
+        
         if st.button("Continue"):
             try:
                 if st.session_state.auth_mode == "login":
                     res = supabase.auth.sign_in_with_password({"email": email, "password": pw})
                     st.session_state.user = res.user
+                    st.session_state.logged_in = True
+                    st.rerun()
                 else:
+                    # Fixed Sign Up Logic
                     supabase.auth.sign_up({"email": email, "password": pw})
-                    st.success("Registration successful! You can now log in.")
-                st.session_state.logged_in = True
-                st.rerun()
+                    st.success("Registration successful! Please check your email to verify your account, then log in.")
             except Exception as e: 
                 st.error(f"Authentication Error: {e}")
+                
         if st.button("Back"):
             st.session_state.auth_mode = "landing"
             st.rerun()
@@ -227,12 +228,26 @@ else:
         st.markdown('<div class="custom-card">', unsafe_allow_html=True)
         st.subheader("📸 AI Waste Scanner")
         model = load_yolo()
-        files = st.file_uploader("Upload images", accept_multiple_files=True)
         
-        if files and st.button("⚡ Start Analysis"):
+        # Tabs for Dual Input Methods
+        tab1, tab2 = st.tabs(["📁 Upload Image", "📷 Take Photo"])
+        images_to_process = []
+        
+        with tab1:
+            files = st.file_uploader("Upload images", accept_multiple_files=True)
+            if files:
+                images_to_process.extend(files[:5])
+                
+        with tab2:
+            camera_photo = st.camera_input("Take a live picture")
+            if camera_photo:
+                images_to_process.append(camera_photo)
+        
+        # Inference Execution
+        if images_to_process and st.button("⚡ Start Analysis"):
             session_rri = 0
             detected = set()
-            for f in files[:5]:
+            for f in images_to_process:
                 img = Image.open(f)
                 results = model(np.array(img))
                 st.image(results[0].plot()[:,:,::-1], use_container_width=True)
@@ -259,7 +274,6 @@ else:
         st.subheader("RRI Trends")
         if not history_df.empty:
             history_df['created_at'] = pd.to_datetime(history_df['created_at'])
-            # Sort chronologically so the line draws correctly
             history_df = history_df.sort_values(by="created_at") 
             chart_theme = "plotly_dark" if st.session_state.theme == "dark" else "plotly_white"
             line_color = "#4caf50" if st.session_state.theme == "dark" else "#2e7d32"
