@@ -258,6 +258,11 @@ else:
                         session_rri += sustainability_db.get(name, {}).get('rri_score', 0)
             
             st.session_state.detected_items = list(detected)
+
+            if detected:
+                st.info(f"🔍 **Detected Items:** {', '.join(detected)}")
+            else:
+                st.warning("No recognized waste items found in this image.")
             
             if user_id and session_rri > 0:
                 supabase.table("user_history").insert({"user_id": user_id, "rri_score": session_rri}).execute()
