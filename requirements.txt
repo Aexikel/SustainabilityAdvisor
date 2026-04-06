@@ -7,3 +7,4 @@ ultralytics
 supabase
 google-generativeai
 streamlit-lottie
+opencv-python-headless
