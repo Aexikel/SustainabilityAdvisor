@@ -3,8 +3,7 @@ numpy
 pandas
 plotly
 Pillow
-ultralytics
+ultralytics-opencv-headless
 supabase
 google-generativeai
 streamlit-lottie
-opencv-python-headless
